@@ -1,0 +1,27 @@
+TITLE: LCA for Tertiles with covariates - 2 classes 
+DATA: FILE IS analysis_lca_tert.dat;
+VARIABLE: 
+    NAMES = id_uni sex d_id_unim moscho moageimp gtatole exposure1000 atole1000
+     byear eduyr t1-t4; 
+    MISSING=.;
+    CLASSES = c(2);
+    CATEGORICAL = t1-t4;
+    USEVARIABLES = sex moscho gtatole byear eduyr exposure1000 atole1000 
+        t1-t4;
+    AUXILIARY = id_uni;
+SAVEDATA:
+      FILE IS twc_c2.dat;
+      SAVE = cprobabilities;
+ANALYSIS: 
+    TYPE = MIXTURE;
+    STARTS = 100 20;
+    STITERATIONS = 20;
+    
+MODEL:
+    %OVERALL%
+    c on sex moscho gtatole exposure1000 atole1000 byear eduyr;
+!    t2 on eduyr;
+OUTPUT: TECH1 TECH11 TECH14;
+PLOT: 
+    TYPE=PLOT3;
+    SERIES IS t1(1) t2(2) t3(3) t4(4);

@@ -1,0 +1,1 @@
+# Refer to Mplus output for LCA: tertiles w covariates_4.out
