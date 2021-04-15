@@ -170,7 +170,7 @@ treatment_weights = function(a_formula,df,standardized=TRUE,type = "glmm",cluste
 # OUTCOME MODEL ----------
 outcome_standardization <- function(df=data.frame(),o_formula,
                                     treatment_var = "bin6775",ind_id = "id_uni",
-                                    ipw=NA,levels_vec=NA){
+                                    ipw=NA,levels_vec=NA,family="gaussian"){
   
   outcome_var = str_split(o_formula," ~ ")[[1]][1]
   
@@ -206,7 +206,7 @@ outcome_standardization <- function(df=data.frame(),o_formula,
            wts = ipw)
   
   # CATEGORICAL TREATMENT
-  if(!is.numeric(treatment_vec)){
+  if(!is.numeric(treatment_vec)|length(levels_vec)>0){
     # d0 = df %>% 
     #   mutate(i = 0,
     #          a = 0,
@@ -230,9 +230,10 @@ outcome_standardization <- function(df=data.frame(),o_formula,
              y = NA,
              wts = ipw)
   }
+
   
   # NUMERIC TREATMENT
-  if(is.numeric(treatment_vec)){
+  if(is.numeric(treatment_vec) & length(levels_vec)==1){
     
     d0 = df %>% 
       mutate(i = 0,
@@ -257,15 +258,16 @@ outcome_standardization <- function(df=data.frame(),o_formula,
                            weights = wts,corstr = "independence")
     
     
-  }
-  
-  if(length(ipw) < nrow(df)){
-    fit <- glm(as.formula(updated_formula), 
+  } else if(is.na(ind_id) & family == "gaussian"){
+    fit <- glm(as.formula(updated_formula),family = gaussian(), 
+               data = d_combined)
+  } else if(is.na(ind_id) & family == "binomial"){
+    fit <- glm(as.formula(updated_formula),family = binomial(), 
                data = d_combined)
   }
   
   d_combined$predicted_y = NA
-  d_combined$predicted_y = predict(fit,d_combined)
+  d_combined$predicted_y = predict(fit,d_combined,type="response")
   
   return(c(mean(d_combined$predicted_y[d_combined$i==-1]),
            mean(d_combined$predicted_y[d_combined$i==0]),

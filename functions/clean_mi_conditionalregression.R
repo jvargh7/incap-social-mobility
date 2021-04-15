@@ -47,16 +47,17 @@ adjusted_ci = function(model_list,link="lmer identity"){
     dplyr::filter(!is.na(std.error)) %>% 
     mutate(W_d = std.error^2) %>% 
     group_by(term) %>% 
+     # Pages 233 - 235 of Little and Rubin 2019 Statistical Analysis with Missing Data
     mutate(B_D = var(estimate)) %>% 
     dplyr::summarize(B_D = mean(B_D),
-                     W_D = mean(W_d),
-                     theta_D = mean(estimate)
+              W_D = mean(W_d),
+              theta_D = mean(estimate)
     ) %>% 
     ungroup() %>% 
     
     mutate(T_D = W_D + (1 + 1/D)*B_D,
            gamma_D = (1 + 1/D)*(B_D/T_D),
-           nu = (D-1)*((1+ (1/D+1)*(W_D/B_D))^2)
+           nu = (D-1)*((1+ (D/(D+1))*(W_D/B_D))^2)
     ) %>% 
     mutate(L = theta_D + qt(p = 0.025,df = nu)*((T_D)^((1/2))),
            U = theta_D + qt(p = 0.975,df = nu)*((T_D)^((1/2))),
@@ -214,31 +215,66 @@ contrasts_geeglm <- function(fit,model_matrix,vcov_type = "robust"){
 }
 
 
+contrasts_lm <- function(fit,model_matrix,vcov_type = "robust"){
+  
+  # fit = models_list[[1]]
+  
+  if(vcov_type == "robust"){
+    vcov_lm = vcovHC(fit, "HC0")
+  } else{vcov_lm = vcov(fit)}
+  
+  
+  
+  contrast_est = coef(fit)%*%t(model_matrix)
+  contrast_se = sqrt(model_matrix%*%vcov_lm%*% t(model_matrix))
+  
+  output = data.frame(Estimate = contrast_est[1,],
+                      SE = diag(contrast_se)) %>% 
+    mutate(LCI = Estimate - 1.96*SE,
+           UCI = Estimate + 1.96*SE)
+  
+  output$term = paste0("Contrast ",c(1:nrow(output)))
+  
+  return(output)
+  
+  
+  
+}
+
+
+
 
 clean_mi_contrasts <- function(model_list,link = "geeglm identity",model_matrix = matrix(),vcov_type="robust"){
-  
+
   D = length(model_list)
   
   if(link %in% c("geeglm identity")){
     
     df = purrr::imap_dfr(model_list ,
                          function(x,name) {
-                           contrasts_geeglm(x,model_matrix,vcov_type = vcov_type) %>% 
-                             mutate(index = name)
+                           if(class(x) == "lm"){
+                             contrasts_out = contrasts_lm(x,model_matrix,vcov_type = vcov_type) %>% 
+                               mutate(index = name)
+                           }
+                           if(class(x) == "geeglm"){
+                             contrasts_out = contrasts_geeglm(x,model_matrix,vcov_type = vcov_type) %>% 
+                               mutate(index = name)
+                           }
+                           return(contrasts_out)
                          }) %>% 
       dplyr::filter(!is.na(SE)) %>% 
       mutate(W_d = SE^2) %>% 
       group_by(term) %>% 
       mutate(B_D = var(Estimate)) %>% 
-      dplyr::summarize(B_D = mean(B_D),
-                       W_D = mean(W_d),
-                       theta_D = mean(Estimate)
+      dplyr::summarize(B_D = mean(B_D), # B: Variance of estimates (between imputation variance)
+                       W_D = mean(W_d), #\bar{V}: average of V_d over D imputed datasets
+                       theta_D = mean(Estimate) #\bar{\theta}: mean of estimates
       ) %>% 
       ungroup() %>% 
       
-      mutate(T_D = W_D + (1 + 1/D)*B_D,
-             gamma_D = (1 + 1/D)*(B_D/T_D),
-             nu = (D-1)*((1+ (1/D+1)*(W_D/B_D))^2)
+      mutate(T_D = W_D + (1 + 1/D)*B_D, # Var(\theta|Y_{0}) ~ improved approximation of posterior variance [\bar{V} + B] 
+             gamma_D = (1 + 1/D)*(B_D/T_D), # \hat{\gamma}_D = between imputation : total variance --> fraction of missing information
+             nu = (D-1)*((1+ (D/(D+1))*(W_D/B_D))^2) # degrees of freedom of t-distribution
       ) %>% 
       mutate(L = theta_D + qt(p = 0.025,df = nu)*((T_D)^((1/2))),
              U = theta_D + qt(p = 0.975,df = nu)*((T_D)^((1/2))),
