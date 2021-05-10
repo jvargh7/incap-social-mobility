@@ -57,7 +57,7 @@ adjusted_ci = function(model_list,link="lmer identity"){
     
     mutate(T_D = W_D + (1 + 1/D)*B_D,
            gamma_D = (1 + 1/D)*(B_D/T_D),
-           nu = (D-1)*((1+ (D/(D+1))*(W_D/B_D))^2)
+           nu = (D-1)*((1+ (1/(D+1))*(W_D/B_D))^2)
     ) %>% 
     mutate(L = theta_D + qt(p = 0.025,df = nu)*((T_D)^((1/2))),
            U = theta_D + qt(p = 0.975,df = nu)*((T_D)^((1/2))),
@@ -274,7 +274,7 @@ clean_mi_contrasts <- function(model_list,link = "geeglm identity",model_matrix 
       
       mutate(T_D = W_D + (1 + 1/D)*B_D, # Var(\theta|Y_{0}) ~ improved approximation of posterior variance [\bar{V} + B] 
              gamma_D = (1 + 1/D)*(B_D/T_D), # \hat{\gamma}_D = between imputation : total variance --> fraction of missing information
-             nu = (D-1)*((1+ (D/(D+1))*(W_D/B_D))^2) # degrees of freedom of t-distribution
+             nu = (D-1)*((1+ (1/(D+1))*(W_D/B_D))^2) # degrees of freedom of t-distribution
       ) %>% 
       mutate(L = theta_D + qt(p = 0.025,df = nu)*((T_D)^((1/2))),
              U = theta_D + qt(p = 0.975,df = nu)*((T_D)^((1/2))),
