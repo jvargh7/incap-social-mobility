@@ -6,19 +6,21 @@ adjusted_ci = function(model_list,link="lmer identity"){
   
   if(link == "zinf glmmTMB log"){
     df = purrr::imap_dfr(model_list,
-                         function(x,name){
-                           bind_rows(summary(x)$coefficients$cond %>% 
-                                       data.frame() %>% 
-                                       mutate(term = row.names(.)) %>% 
-                                       mutate(type = "Conditional"),
-                                     summary(x)$coefficients$zi %>% 
-                                       data.frame() %>% 
-                                       mutate(term = row.names(.)) %>% 
-                                       mutate(type = "Zero Inflation")) %>% 
-                             mutate(index = name)
-                         }
-                         
-    ) %>% 
+                     function(x,name){
+                       dfcom = summary(x)$AICtab["df.resid"] %>% as.numeric();
+                       bind_rows(summary(x)$coefficients$cond %>% 
+                                   data.frame() %>% 
+                                   mutate(term = row.names(.)) %>% 
+                                   mutate(type = "Conditional"),
+                                 summary(x)$coefficients$zi %>% 
+                                   data.frame() %>% 
+                                   mutate(term = row.names(.)) %>% 
+                                   mutate(type = "Zero Inflation")) %>% 
+                         mutate(index = name,
+                                dfcom = dfcom)
+                     }
+                     
+                       ) %>% 
       rename(estimate = Estimate,
              std.error = Std..Error)
   }
@@ -57,9 +59,9 @@ adjusted_ci = function(model_list,link="lmer identity"){
     # Pages 233 - 235 of Little and Rubin 2019 Statistical Analysis with Missing Data
     mutate(B_D = var(estimate)) %>% 
     dplyr::summarize(B_D = mean(B_D),
-                     W_D = mean(W_d),
-                     theta_D = mean(estimate),
-                     dfcom = mean(dfcom)
+              W_D = mean(W_d),
+              theta_D = mean(estimate),
+              dfcom = mean(dfcom)
     ) %>% 
     ungroup() %>% 
     
@@ -245,7 +247,7 @@ contrasts_lm <- function(fit,model_matrix,vcov_type = "robust"){
   output = data.frame(Estimate = contrast_est[1,],
                       SE = diag(contrast_se),
                       dfcom = fit$df.residual[[1]]
-  ) %>% 
+                      ) %>% 
     mutate(LCI = Estimate - 1.96*SE,
            UCI = Estimate + 1.96*SE)
   
@@ -259,7 +261,7 @@ contrasts_lm <- function(fit,model_matrix,vcov_type = "robust"){
 
 
 clean_mi_contrasts <- function(model_list,link = "geeglm identity",model_matrix = matrix(),vcov_type="robust"){
-  
+
   D = length(model_list)
   
   if(link %in% c("geeglm identity")){
