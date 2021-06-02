@@ -10,6 +10,8 @@ alive2016 <- gates %>%
 
 source(paste0(path_incap_repo,"/structural/early_life.R"))
 
+ses_masters <- readRDS(paste0(path_incap_ses_dfa,"/ses_masters.RDS")) %>% 
+  arrange(id_uni)
 
 
 alive_df <- incap_early_life %>% 

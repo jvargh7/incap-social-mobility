@@ -1,11 +1,11 @@
-library(compareGroups)
-library(glmmTMB)
+analysis_df <- readRDS(paste0(path_dissertation,"/aim 2/working/incap/cs_analysis_df.RDS")) %>% dplyr::filter(gtchbyear >= 71)
+miaux_dfs75 <- readRDS(paste0(path_dissertation,"/aim 2/working/incap/miaux_dfs75.RDS"))
+source(paste0(path_replication_repo,"/absolute wealth/aw07_conditional wealth for post 1971 born.R"))
 
-source(paste0("absolute wealth/aw02_multiple imputation with auxiliary.R"))
-source(paste0("functions/gmethods_functions.R"))
-source(paste0("functions/display_results.R"))
+source(paste0(path_mobility_repo,"/functions/display_results.R"))
 
-# BMI ------------
+
+# BMI --------------
 
 formula_bmi = "adbmi ~ pcall6775_1 + cs_1987 + cs_2002 + cs_1618 + moscho_sib + gtadeduyr1618 + gtatole*exposure1000 + byear + rural"
 
@@ -15,15 +15,15 @@ models_bmi_f <- list()
 models_bmi_m <- list()
 models_bmi_c <- list()
 
-for (i in 1:mi_iter){
+for (i in 1:miaux_dfs75$m){
   
   cat("\n Iteration ",i)
   
-  model_df = analysis7_df %>% 
+  model_df = analysis_df %>% 
     mutate(cs_1987 = cwealth1987_imp %>% dplyr::select(paste0("V",i)) %>% pull(),
            cs_2002 = cwealth2002_imp %>% dplyr::select(paste0("V",i)) %>% pull(),
            cs_1618 = cwealth1618_imp %>% dplyr::select(paste0("V",i)) %>% pull(),
-           moscho_sib = complete(miaux_dfs,i)$moscho_sib
+           moscho_sib = complete(miaux_dfs75,i)$moscho_sib
            
     )
   
@@ -54,19 +54,7 @@ for (i in 1:mi_iter){
   models_bmi_m[[i]] <- glm_m
   models_bmi_c[[i]] <- glm_c
   
-  bind_rows(clean_glm_result(glm_f,link = "lmer identity") %>% 
-              mutate(sex = "Female"),
-            clean_glm_result(glm_m,link = "lmer identity") %>% 
-              mutate(sex = "Male"),
-            clean_glm_result(glm_c,link = "lmer identity") %>% 
-              mutate(sex = "Combined")
-  ) %>% 
-    dplyr::select(sex,iv,Coefficient) %>% 
-    display_results(.)
-  
-  cat("##### pagebreak")
-  
-  
+
 }
 
 bind_rows(clean_mi_conditionalregression(models_bmi_f,link = "lmer identity") %>% 
@@ -77,9 +65,11 @@ bind_rows(clean_mi_conditionalregression(models_bmi_f,link = "lmer identity") %>
             mutate(sex = "Combined")
 ) %>% 
   dplyr::select(sex,iv,Coefficient) %>% 
-  display_results(.) 
+  display_results(.)
+
 
 # SRQ-20 ------------
+
 
 formula_srq = "adsrq ~ pcall6775_1 + cs_1987 + cs_2002 + cs_1618 + moscho_sib + gtadeduyr1618 + gtatole*exposure1000 + byear + rural"
 
@@ -88,14 +78,15 @@ models_srq_f <- list()
 models_srq_m <- list()
 models_srq_c <- list()
 
-for (i in 1:mi_iter){
+for (i in 1:miaux_dfs75$m){
   
   # cat("\n Iteration ",i)
   
-  model_df = analysis7_df %>% 
+  model_df = analysis_df %>% 
     mutate(cs_1987 = cwealth1987_imp %>% dplyr::select(paste0("V",i)) %>% pull(),
            cs_2002 = cwealth2002_imp%>% dplyr::select(paste0("V",i)) %>% pull(),
-           cs_1618 = cwealth1618_imp%>% dplyr::select(paste0("V",i)) %>% pull()
+           cs_1618 = cwealth1618_imp%>% dplyr::select(paste0("V",i)) %>% pull(),
+           moscho_sib = complete(miaux_dfs75,i)$moscho_sib
     )
   
   glm_f <- lm(as.formula(formula_srq),
@@ -128,7 +119,7 @@ bind_rows(clean_mi_conditionalregression(models_srq_f,link = "lmer identity") %>
   display_results()
 
 
-# RAVENS ---------
+# RAVENS ------------
 
 formula_ravens = "adravenstotscore ~ pcall6775_1 + cs_1987 + cs_2002 + cs_1618 + moscho_sib + gtadeduyr1618 + gtatole*exposure1000 + byear + rural"
 
@@ -138,15 +129,15 @@ models_ravens_f <- list()
 models_ravens_m <- list()
 models_ravens_c <- list()
 
-for (i in 1:mi_iter){
+for (i in 1:miaux_dfs75$m){
   
   # cat("\n Iteration ",i)
   
-  model_df = analysis7_df %>% 
+  model_df = analysis_df %>% 
     mutate(cs_1987 = cwealth1987_imp %>% dplyr::select(paste0("V",i)) %>% pull(),
            cs_2002 = cwealth2002_imp%>% dplyr::select(paste0("V",i)) %>% pull(),
            cs_1618 = cwealth1618_imp%>% dplyr::select(paste0("V",i)) %>% pull(),
-           moscho_sib = complete(miaux_dfs,i)$moscho_sib
+           moscho_sib = complete(miaux_dfs75,i)$moscho_sib
     )
   
   glm_f <- lm(as.formula(formula_ravens),
@@ -179,70 +170,17 @@ bind_rows(clean_mi_conditionalregression(models_ravens_f,link = "lmer identity")
   dplyr::select(sex,iv,Coefficient) %>% 
   display_results()
 
-# HEIGHT -------------
+# SUPPLEMENTARY TABLE 9B --------
 
-formula_ht = "adht ~ pcall6775_1 + cs_1987 + cs_2002 + moscho_sib + gtadeduyr1618 + gtatole*exposure1000 + byear"
-
-# i = 1
-
-models_ht_f <- list()
-models_ht_m <- list()
-models_ht_c <- list()
-
-for (i in 1:mi_iter){
-  
-  # cat("\n Iteration ",i)
-  
-  model_df = analysis_df %>% 
-    mutate(cs_1987 = cwealth1987_imp %>% dplyr::select(paste0("V",i)) %>% pull(),
-           cs_2002 = cwealth2002_imp%>% dplyr::select(paste0("V",i)) %>% pull(),
-           cs_1618 = cwealth1618_imp%>% dplyr::select(paste0("V",i)) %>% pull(),
-           moscho_sib = complete(miaux_dfs,i)$moscho_sib
-    )
-  
-  glm_f <- lm(as.formula(formula_ht),
-              family = gaussian(),
-              data = model_df %>% 
-                dplyr::filter(chsex=="female"))
-  
-  glm_m <- lm(as.formula(formula_ht),
-              family = gaussian(),
-              data = model_df %>% 
-                dplyr::filter(chsex=="male"))
-  
-  glm_c <- lm(as.formula(paste0(formula_ht,"+ chsex")),
-              family = gaussian(),
-              data = model_df)
-  
-  
-  models_ht_f[[i]] <- glm_f
-  models_ht_m[[i]] <- glm_m
-  models_ht_c[[i]] <- glm_c
-}
-
-bind_rows(clean_mi_conditionalregression(models_ht_f,link = "lmer identity") %>% 
-            mutate(sex = "Female"),
-          clean_mi_conditionalregression(models_ht_m,link = "lmer identity") %>% 
-            mutate(sex = "Male"),
-          clean_mi_conditionalregression(models_ht_c,link = "lmer identity") %>% 
-            mutate(sex = "Combined")
-) %>% 
-  dplyr::select(sex,iv,Coefficient) %>% 
-  display_results()
-
-
-# Table 4 output ------------
-
-table4 <- bind_rows(clean_mi_conditionalregression(models_bmi_c,link = "lmer identity") %>% 
-                      mutate(sex = "Combined",outcome = "BMI",
-                             nobs = nobs(models_bmi_c[[1]])),
-                    clean_mi_conditionalregression(models_srq_c,link = "lmer identity") %>% 
-                      mutate(sex = "Combined",outcome ="SRQ20",
-                             nobs = nobs(models_srq_c[[1]])),
-                    clean_mi_conditionalregression(models_ravens_c,link = "lmer identity") %>% 
-                      mutate(sex = "Combined",outcome = "RAVENS",
-                             nobs = nobs(models_ravens_c[[1]]))) %>% 
-  dplyr::select(sex,iv,outcome, Coefficient) %>% 
+stable9b <- bind_rows(clean_mi_conditionalregression(models_bmi_c,link = "lmer identity") %>% 
+                        mutate(sex = "Combined",outcome = "BMI",
+                               nobs = nobs(models_bmi_c[[1]])),
+                      clean_mi_conditionalregression(models_srq_c,link = "lmer identity") %>% 
+                        mutate(sex = "Combined",outcome ="SRQ20",
+                               nobs = nobs(models_srq_c[[1]])),
+                      clean_mi_conditionalregression(models_ravens_c,link = "lmer identity") %>% 
+                        mutate(sex = "Combined",outcome = "RAVENS",
+                               nobs = nobs(models_ravens_c[[1]]))) %>% 
   dplyr::filter(iv %in% c("pcall6775_1","cs_1987","cs_2002","cs_1618")) %>% 
   mutate(iv = factor(iv,levels=c("pcall6775_1","cs_1987","cs_2002","cs_1618"),
                      ordered = TRUE,
@@ -252,9 +190,14 @@ table4 <- bind_rows(clean_mi_conditionalregression(models_bmi_c,link = "lmer ide
                               "4, CS2015-18"
                      )
   )) %>%
-  arrange(sex,iv) %>% 
+  arrange(sex,iv) 
+
+stable9b %>% 
+  write.csv(.,paste0(path_dissertation,"/aim 2/working/incap/stable 9b complete.csv"),row.names = FALSE)
+
+stable9b %>% 
+  dplyr::select(sex,iv,outcome, Coefficient) %>% 
   
-  pivot_wider(names_from = c("sex","outcome"),values_from = "Coefficient")
-
-
-write.csv(table4,paste0(path_dissertation,"/aim 2/working/incap/table 4.csv"),row.names = FALSE)
+  pivot_wider(names_from = c("sex","outcome"),values_from = "Coefficient") %>% 
+  
+  write.csv(.,paste0(path_dissertation,"/aim 2/working/incap/stable 9b.csv"),row.names = FALSE)

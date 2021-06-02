@@ -8,15 +8,15 @@ alive2018 <- gates %>%
   dplyr::select(iduni) %>% 
   pull()
 
-path_mplus_working <- "C:/Cloud/OneDrive - Emory University/MOOCs/Workshops/20190724_Latent Variable Models/working/"
+path_mplus_working <- "H:/Dissertation/aim 2/working/incap"
 
 
 # ANALYSIS_GMETHODS DF ------------
 # analysis_lca_dat.RDS comes from:
-# rw02_analysis_gmethods_df.R
+# aw01_analysis_df.R
 # rw03_analysis_lca_dat.R
 
-analysis_gmethods <- readRDS(paste0(path_mplus_working,"/lca/analysis_lca_dat.RDS"))
+analysis_lca_dat <- readRDS(paste0(path_mplus_working,"/lca/analysis_lca_dat.RDS"))
 
 # FINAL LCA MODEL ------------
 library(MplusAutomation)
@@ -37,21 +37,29 @@ final_model <- readModels(paste0(path_mplus_working,"/lca/tertiles w covariates/
 
 # MERGE LCA WITH ANALYSIS_GMETHODS DF ------------
 
-merged_df <- analysis_gmethods %>% 
+class_labels=c("Upwardly Mobile","Stable High","Stable Low","Downwardly Mobile")
+class_levels=c(1:4)
+
+merged_df <- analysis_lca_dat %>% 
   dplyr::select(id_uni,adbmi,adsrq,adravenstotscore,
                 adht,
-                urbano_rural,
+                rural,
                 gtchbyear,chsex,
                 moscho_sib,gtadeduyr1618,
                 moage_imputed, moscho_imputed,
                 gtatole,
                 d_id_unim,
-                pcall6775_1,pcall1987_1,pcall2002_1,pcall2016_1,pcall2018_1,pcall1618_1,gtadwealthindex1618) %>% 
+                pcall6775_1,pcall1987_1,pcall2002_1,pcall2016_1,pcall2018_1,pcall1618_1) %>% 
   left_join(final_model$savedata %>% 
               data.frame(),
             by=c("id_uni"="ID_UNI")) %>% 
   mutate(C = paste0("Class ",C)
   ) %>% 
+  mutate(C_fac = factor(C,levels=paste0("Class ",class_levels),labels=class_labels)) %>% 
+  mutate(C_fac = fct_relevel(C_fac,"Stable Low",after=0)) %>% 
+  mutate(C_fac = fct_relevel(C_fac,"Stable High",after=1)) %>% 
+  mutate(C_fac = fct_relevel(C_fac,"Downwardly Mobile",after=2)) %>%
+  mutate(C_fac = fct_relevel(C_fac,"Upwardly Mobile",after=3)) %>%
   group_by(C) %>% 
   mutate(nonNA_bmi = sum(!is.na(adbmi)),
          nonNA_srq = sum(!is.na(adsrq)),
@@ -59,4 +67,5 @@ merged_df <- analysis_gmethods %>%
   ) %>% 
   ungroup() %>% 
   dplyr::filter(!is.na(gtadeduyr1618)) %>% 
-  mutate(SEX = factor(SEX,levels=,labels=c("Female","Male")))
+  mutate(SEX = factor(SEX,levels=,labels=c("Female","Male"))) %>% 
+  mutate(C_SH = relevel(factor(C_fac),ref="Stable High"))

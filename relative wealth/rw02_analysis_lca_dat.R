@@ -1,10 +1,10 @@
 # SETUP ------------
 library(MplusAutomation)
-path_mplus_working <- "C:/Cloud/OneDrive - Emory University/MOOCs/Workshops/20190724_Latent Variable Models/working/"
+path_mplus_working <- "H:/Dissertation/aim 2/working/incap"
 
 
 # APPROACH 1------------
-analysis_lca_dat <- analysis_gmethods_df  %>% 
+analysis_lca_dat <- readRDS(paste0(path_dissertation,"/aim 2/working/incap/cs_analysis_df.RDS"))  %>% 
   dplyr::filter((missing2016 == "Available"|
                    missing2018 == "Available"))
 
@@ -113,6 +113,3 @@ prepareMplusData(analysis_lca_dat %>% dplyr::select(id_uni,sex,
                                                     one_of(bin_vars)) %>% 
                    mutate_all(~as.numeric(.)),
                  paste0(path_mplus_working,"/lca/binary/analysis_lca_bin.dat"))
-
-
-

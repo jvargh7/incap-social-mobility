@@ -1,5 +1,7 @@
-ses_masters <- readRDS(paste0(path_incap_ses_dfa,"/ses_masters.RDS"))
-
+ses_masters <- readRDS(paste0(path_incap_ses_dfa,"/ses_masters.RDS")) %>% 
+  arrange(id_uni)
+ses_cs <- readRDS(paste0(path_incap_ses_dfa,"/ses_cs.RDS")) %>% 
+  arrange(id_uni)
 gates <- read_dta(paste0(path_gtml_redcap_data,"/Gates_data_2019-07-12.dta"))
 alive2018 <- gates %>% 
   dplyr::filter(edo_vida2018 %in% c(1,4,6)) %>% 
@@ -10,58 +12,43 @@ alive2016 <- gates %>%
   dplyr::select(iduni) %>% 
   pull()
 
+non_pregnant <- readRDS(paste0(path_gtml_earlier_data,"/bmi over waves.RDS")) %>% 
+  dplyr::filter(year == 2016,(physiological_state =="Non-pregnant Non-lactating"|is.na(physiological_state))) %>% 
+  dplyr::select(iduni) %>% 
+  pull()
+
 source(paste0(path_incap_repo,"/structural/classify_urban_rural.R"))
 source(paste0(path_incap_repo,"/structural/early_life.R"))
 
 
-outcome_vars <- c( "adbmi","adht","adhtc3","gtadfatkg2016","adwc",
-                   "adsbp","addbp",
-                   
-                   "adglucose","adhdl","gtadldlc2016","adtgl",
-                   
-                   
-                   
-                   
-                   
-                   "adravenstotscore",
-                   "addccsnihcomputedscore","adexecutivefunctionfs", "adflankernihcomputedscore",
-                   "adlsrawscore", "adpcrawscore",
-                   
-                   "adhappy","adsrq","adlifesat","gtadhappytot2018","gtadcortisol2016"
-                   
-)
+outcome_vars <- c( "adbmi","adht","adhtc3","adsrq",
+                   "adravenstotscore")
 
-analysis7_df <- readRDS(paste0(path_cohorts_data_for_analysis,"/cohorts_data_for_analysis.RDS")) %>%
+analysis_df <- readRDS(paste0(path_cohorts_data_for_analysis,"/cohorts_data_for_analysis.RDS")) %>%
   dplyr::filter(site == "guatemala") %>% 
-  # dplyr::filter(!is.na(gtadladdercommunity2018)|!is.na(gtadladdereconomic2018)) %>% 
   dplyr::mutate(id_uni = pin - 20000000) %>% 
   dplyr::select(id_uni,
                 one_of(outcome_vars),
-                one_of("gtadeduyr1618","adschooling","ademployment","adrelstat",
-                       "gtadladdercommunity2018",
-                       "gtadladdereconomic2018")
+                one_of("gtadeduyr1618","adschooling","ademployment","adrelstat")
   ) %>% 
   left_join(incap_early_life,
             by = c("id_uni")) %>% 
   left_join(ses_masters,
             by = "id_uni") %>% 
+  left_join(ses_cs %>% 
+              rename_at(vars(starts_with("pcall")), function(x){str_replace(x,"pcall","pccs")}) %>% 
+              dplyr::select(id_uni,starts_with("pccs")),
+            by = "id_uni") %>% 
+  left_join(gates %>% dplyr::select(iduni,lugarres2018),
+            by = c("id_uni"="iduni")) %>% 
   mutate(gtvillage = factor(comun,levels=c(3,6,8,14),labels=c("FR_ES","AT_CO","FR_SD","AT_SJ"))) %>% 
   
   mutate(ht = case_when(!is.na(adht) ~ adht,
                         !is.na(adhtc3) ~ adhtc3,
                         TRUE ~ NA_real_)) %>% 
-  
-  mutate(fmi = gtadfatkg2016/(adht/100)^2,
-         ffmi = adbmi-fmi) %>% 
-  
-  mutate(n_outcomes = apply(.[,outcome_vars],1,function(x) sum(!is.na(x))) %>% as.numeric(.)) %>% 
-  
   mutate(missing1987 = case_when(is.na(pcall1987_1) & !is.na(pcall6775_1) ~ 1,
                                  is.na(pcall6775_1) ~ NA_real_,
                                  TRUE ~ 0) , 
-         # missing1996 = case_when(is.na(pcall1996_1) & !is.na(pcall6775_1) ~ 1,
-         #                         is.na(pcall6775_1) ~ NA_real_,
-         #                         TRUE ~ 0),
          missing2002 = case_when(is.na(pcall2002_1) & !is.na(pcall6775_1) ~ 1,
                                  is.na(pcall6775_1) ~ NA_real_,
                                  TRUE ~ 0),
@@ -88,13 +75,6 @@ analysis7_df <- readRDS(paste0(path_cohorts_data_for_analysis,"/cohorts_data_for
                                gtchatoleexposurestatus %in% c("full") & gtatole == 0 ~ 0,
                                TRUE ~ NA_real_),
          
-         tert6775 = cut(pcall6775_1,
-                        breaks = quantile(pcall6775_1,
-                                          probs=c(0,0.33,0.67,1),
-                                          na.rm=TRUE),
-                        include.lowest = TRUE,
-                        
-                        labels = c("low","mid","high")),
          byear = gtchbyear - 62,
          byeargt70 = case_when(gtchbyear > 70 ~ 1,
                                TRUE ~ 0),
@@ -115,9 +95,14 @@ analysis7_df <- readRDS(paste0(path_cohorts_data_for_analysis,"/cohorts_data_for
                                          TRUE ~ NA_real_)
          
   ) %>% 
-  mutate(pcall1618_1 = case_when(!is.na(pcall2016_1) ~ pcall2016_1,
-                                 is.na(pcall2016_1) & !is.na(pcall2018_1) ~ pcall2018_1,
-                                 TRUE ~ NA_real_)) %>% 
+  mutate(pcall1618_1 = case_when(!is.na(pcall2018_1) ~ pcall2018_1,
+                                 is.na(pcall2018_1) & !is.na(pcall2016_1) ~ pcall2016_1,
+                                 TRUE ~ NA_real_),
+         pccs1618_1 = case_when(!is.na(pccs2018_1) ~ pccs2018_1,
+                                is.na(pccs2018_1) & !is.na(pccs2016_1) ~ pccs2016_1,
+                                TRUE ~ NA_real_)
+         
+  ) %>% 
   mutate_at(vars(starts_with("missing")), function(x) factor(x,levels=c(0,1),labels=c("Available","Missing"))) %>% 
   
   dplyr::filter(id_uni %in% unique(c(alive2016,alive2018))) %>% 
@@ -140,13 +125,14 @@ analysis7_df <- readRDS(paste0(path_cohorts_data_for_analysis,"/cohorts_data_for
                                        TRUE ~ NA_real_)
               ),
             by=c("id_uni"="iduni")) %>% 
-  ## The below line removes everyone who isn't having an outcome
-  # dplyr::filter(n_outcomes >0) %>%
-  dplyr::filter(urbano_rural %in% c("urban","rural")|is.na(urbano_rural)) %>% 
-  
-  dplyr::filter(!is.na(gtadeduyr1618))
+  # BMI in pregnant set to zero ---------
+mutate_at(vars(adbmi),.f=function(x){case_when(.$id_uni %in% non_pregnant ~ x,
+                                               TRUE ~ NA_real_)}) %>% 
+  mutate(n_outcomes = apply(.[,c("adbmi","adravenstotscore","adsrq")],1,
+                            function(x) sum(!is.na(x))) %>% as.numeric(.)) %>% 
+  dplyr::filter(!is.na(gtadeduyr1618),!is.na(rural))
 
+attr(analysis_df$gtvillage,"label") <- "Village Fixed Effect"
+attr(analysis_df$ht,"label") <- "Height (in cm)"
 
-attr(analysis7_df$gtvillage,"label") <- "Village Fixed Effect"
-attr(analysis7_df$fmi,"label") <- "Fat Mass Index"
-attr(analysis7_df$ffmi,"label") <- "Fat Free Mass Index"
+saveRDS(analysis_df,paste0(path_dissertation,"/aim 2/working/incap/cs_analysis_df.RDS"))
